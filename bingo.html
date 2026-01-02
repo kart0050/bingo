@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Automatic Bingo Number Board</title>
+<style>
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: black;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  #top-bar {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    background-color: #333;
+    padding: 10px;
+    box-sizing: border-box;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  #top-bar span {
+    font-size: 20px;
+    font-weight: bold;
+    margin-right: 10px;
+  }
+
+  #top-bar button {
+    font-size: 16px;
+    padding: 5px 10px;
+    margin-left: 5px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(10, 60px);
+    grid-template-rows: repeat(9, 60px);
+    gap: 5px;
+    margin: 20px;
+  }
+
+  .cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: white;
+    color: black;
+    font-size: 20px;
+    font-weight: bold;
+    border-radius: 5px;
+  }
+
+  .current {
+    background-color: #5DADE2;
+    color: black;
+    font-size: 28px;
+    font-weight: bold;
+  }
+
+  .selected {
+    background-color: darkgrey;
+    font-size: 24px;
+    font-weight: bold;
+  }
+
+  #selected-numbers {
+    width: 90%;
+    height: 120px;
+    overflow-y: auto;
+    background-color: #222;
+    padding: 10px;
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 20px;
+  }
+
+  #interval-input {
+    width: 60px;
+    font-size: 16px;
+    margin-left: 5px;
+    margin-right: 10px;
+  }
+</style>
+</head>
+<body>
+
+<div id="top-bar">
+  <span id="current-label">Nu / Now / இப்போது: None</span>
+  <span id="previous-label">Før / Before / முதல் வந்த ⚠️: None</span>
+  <div>
+    <label for="interval-input" style="color:white;">Draw Interval (sec): </label>
+    <input type="number" id="interval-input" value="2" min="1">
+    <button id="pause-btn">Pause</button>
+    <button id="reset-btn">Reset</button>
+    <button id="fullscreen-btn">⛶</button>
+  </div>
+</div>
+
+<div id="grid"></div>
+
+<div id="selected-numbers"></div>
+
+<script>
+  // Game variables
+  let DRAW_INTERVAL = 2000; // default 20 seconds
+  let availableNumbers = Array.from({length: 90}, (_, i) => i + 1);
+  let selectedNumbers = [];
+  let currentNumber = null;
+  let previousNumber = null;
+  let paused = false;
+  let autoDrawInterval = null;
+
+  // DOM elements
+  const grid = document.getElementById('grid');
+  const currentLabel = document.getElementById('current-label');
+  const previousLabel = document.getElementById('previous-label');
+  const selectedDiv = document.getElementById('selected-numbers');
+  const pauseBtn = document.getElementById('pause-btn');
+  const resetBtn = document.getElementById('reset-btn');
+  const fullscreenBtn = document.getElementById('fullscreen-btn');
+  const intervalInput = document.getElementById('interval-input');
+
+  // Create grid cells
+  const cells = {};
+  for(let i=1; i<=90; i++) {
+    const cell = document.createElement('div');
+    cell.classList.add('cell');
+    cell.textContent = i;
+    grid.appendChild(cell);
+    cells[i] = cell;
+  }
+
+  // Update the display
+  function updateDisplay() {
+    currentLabel.textContent = `Nu / Now / இப்போது: ${currentNumber ?? 'None'}`;
+    previousLabel.textContent = `Før / Before / முதல் வந்த ⚠️: ${previousNumber ?? 'None'}`;
+    selectedDiv.textContent = selectedNumbers.join(', ');
+  }
+
+  // Draw a random number
+  function drawNumber() {
+    if(paused || availableNumbers.length === 0) return;
+
+    const idx = Math.floor(Math.random() * availableNumbers.length);
+    const number = availableNumbers.splice(idx, 1)[0];
+    selectedNumbers.push(number);
+
+    if(currentNumber) cells[currentNumber].classList.remove('current');
+    previousNumber = currentNumber;
+    currentNumber = number;
+
+    cells[number].classList.add('current');
+    if(previousNumber) cells[previousNumber].classList.add('selected');
+
+    updateDisplay();
+
+    if(availableNumbers.length === 0) {
+      clearInterval(autoDrawInterval);
+      selectedDiv.textContent += '\nAll numbers have been drawn!';
+    }
+  }
+
+  // Pause / Resume
+  function togglePause() {
+    paused = !paused;
+    pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+  }
+
+  // Reset game
+  function resetGame() {
+    clearInterval(autoDrawInterval);
+    availableNumbers = Array.from({length: 90}, (_, i) => i + 1);
+    selectedNumbers = [];
+    currentNumber = null;
+    previousNumber = null;
+    paused = false;
+    pauseBtn.textContent = 'Pause';
+
+    for(let i=1; i<=90; i++) {
+      cells[i].classList.remove('current', 'selected');
+    }
+    updateDisplay();
+    autoDrawInterval = setInterval(drawNumber, DRAW_INTERVAL);
+  }
+
+  // Fullscreen toggle
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  }
+
+  // Interval change
+  intervalInput.addEventListener('change', () => {
+    let val = parseInt(intervalInput.value);
+    if(isNaN(val) || val < 1) val = 1; 
+    DRAW_INTERVAL = val * 1000; 
+    if(autoDrawInterval) {
+      clearInterval(autoDrawInterval);
+      autoDrawInterval = setInterval(drawNumber, DRAW_INTERVAL);
+    }
+  });
+
+  // Event listeners
+  pauseBtn.addEventListener('click', togglePause);
+  resetBtn.addEventListener('click', resetGame);
+  fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+  // Start auto draw
+  autoDrawInterval = setInterval(drawNumber, DRAW_INTERVAL);
+
+</script>
+
+</body>
+</html>
